@@ -1,26 +1,31 @@
-jupyterlab_myst
+#tornado==6.5.8
+jupyter-ai
+jai-personas-contrib[all] @ git+https://github.com/hkphysics/jai-personas-contrib.git
+git+https://github.com/hkphysics/jupyter-ai-jupyternaut.git@develop
+git+https://github.com/hkphysics/jupyter-chat#subdirectory=python/jupyterlab-chat
+git+https://github.com/hkphysics/jupyter-ai-persona-manager
+
+
+bash_kernel
+zsh_jupyter_kernel
+oauthenticator
+jupyterlab-ai-commands
+# Jupyter AI MCP framework (jupyter-ai-contrib)
+jupyter-server-mcp
+jupyter-mcp-manager
+jupyter-ai-tools
+marimo[sandbox]>=0.23.14
+marimo-jupyter-extension
+marpyter
+
+git+https://github.com/hkphysics/jupyterlab-myst.git
+jupyterlab-diff
 jupyterlab-git
 jupyterlab-latex
 jupyterlab-spreadsheet-editor
 jupyter-archive
 jupytext
 oauthenticator
-
-# installing all jupyter-ai models will cause
-# a timeout on startup
-jupyterlite-ai[jupyter]
-git+https://github.com/hkphysics/jupyter-ai-jupyternaut.git@develop
-git+https://github.com/hkphysics/jupyter-ai-magic-commands@develop
-git+https://github.com/hkphysics/jupyter-ai-persona-manager@develop
-jupyter-ai-router
-jupyter-ai-tools
-jupyter-ai-litellm
-jupyterlab-magic-wand
-jupyter-server-mcp
-# This can causes freezes
-jupyter-collaboration
-lckr-jupyterlab-variableinspector
-jupyterlab-code-formatter
 isort
 black
 mystmd
@@ -28,22 +33,14 @@ pytest
 matplotlib
 pandas
 polars
+duckdb
 ipympl
+numba
 # version with fixes
 git+https://github.com/hkphysics/uniswappy.git
 nb-clean
 voila
-#tensorboard
-#jupyterlab-tensorboard-pro
 
-langchain
-langgraph
-langsmith
-langchain-ollama
-langchain-openrouter
-langclaw
-langchain-community
-deepagents
 dotenv
 nbstripout
 ipywidgets
@@ -61,3 +58,13 @@ icecream
 bash_kernel
 jupyter_ai_acp_client
 zsh_jupyter_kernel
+jupyterlab_commands_toolkit
+jupyterlab-ai-commands
+stellars_jupyterlab_extensions
+python-docx
+python-pptx
+pillow
+reportlab
+pdfplumber
+pypdf
+

@@ -3,20 +3,23 @@
 set -e
 umask 000
 export PATH=$PATH:/home/linuxbrew/.linuxbrew/bin
+unset UV
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 brew trust openclaw/tap steipete/tap
 brew install --force \
+     gh gogcli \
      openclaw/tap/goplaces steipete/tap/gifgrep \
      himalaya steipete/tap/spogo steipete/tap/songsee
 brew install --cask 1password-cli
 brew cleanup --prune=all
+rm -rf /home/linuxbrew/.linuxbrew/var/cache
 
 openclaw config set --batch-json '[
 {"path": "models.providers.ollama", "value": {"baseUrl": "http://host.docker.internal:11434", "apiKey": "ollama-local", "api": "ollama", "models": [{"id": "gemma4", "name": "gemma4", "reasoning": false, "input": ["text"], "cost": {"input": 0, "output": 0, "cacheRead": 0, "cacheWrite": 0}, "contextWindow": 128000, "maxTokens": 8192}]}},
 {"path": "agents.defaults", "value": {"model": {"primary": "openrouter/openrouter/free", "fallbacks": ["openrouter/openrouter/free"]}, "models": {"openrouter/openrouter/free": {}, "ollama/gemma4:latest": {}, "ollama/rnj-1:latest": {}, "ollama/qwen3.6:latest": {}, "ollama/translategemma:27b": {}, "ollama/glm-4.7-flash:latest": {}, "ollama/gpt-oss:latest": {}, "openrouter/google/gemma-4-26b-a4b-it:free": {}, "openrouter/google/gemma-4-31b-it:free": {}, "openrouter/qwen/qwen3-coder:free": {}, "openrouter/openai/gpt-oss-20b:free": {}, "openrouter/minimax/minimax-m2.5:free": {}}}, "workspace": "/home/node/.openclaw/workspace", "compaction": {"mode": "safeguard"}, "maxConcurrent": 4, "subagents": {"maxConcurrent": 8}, "thinkingDefault": "adaptive"},
 {"path": "env", "value": {"shellEnv": {"enabled": true, "timeoutMs": 5000}}},
-{"path": "plugins", "value": {"entries": {"openrouter": {"enabled": true}, "ollama": {"enabled": true}, "searxng": {"enabled": true, "config": {"webSearch": {"baseUrl": "http://searxng-core:8080"}}}}}},
+{"path": "plugins", "value": {"entries": {"browser": {"enabled": true}, "openrouter": {"enabled": true}, "ollama": {"enabled": true}, "searxng": {"enabled": true, "config": {"webSearch": {"baseUrl": "http://searxng-core:8080"}}}}}},
 {"path": "auth", "value": {"profiles": {"ollama:default": {"provider": "ollama", "mode": "api_key"}, "openrouter:default": {"provider": "openrouter", "mode": "api_key"}}}},
 {"path": "gateway.mode", "value": "local"},
 {"path": "gateway.http.endpoints.chatCompletions.enabled", "value": true},
@@ -30,32 +33,34 @@ openclaw config set --batch-json '[
 {"path": "browser.noSandbox", "value": true},
 {"path": "browser.defaultProfile", "value": "openclaw"},
 {"path": "browser.executablePath", "value": "/usr/bin/chromium-headless-shell"},
-{"path": "agents.defaults.memorySearch.provider", "value": "local"},
-{"path": "tools.codeMode.enabled", "value": true}
+{"path": "tools.codeMode.enabled", "value": true},
+{"path": "plugins.allow", "value": ["browser", "web-readability", "llama-cpp", "searxng"] },
+{"path": "tools.deny", "value": ["ask_user"]}
 ]'
 
-source $SCRIPT_DIR/common-config.sh
+# turn off ask_user because of conflict with open_webui
+
+source $SCRIPT_DIR/install-common.sh
 
 modules=(
-    "multi-search-engine"
-    "word-docx"
-    "powerpoint-pptx"
+    "@gpyangyoujun/multi-search-engine"
+    "@ivangdavila/word-docx"
+    "@ivangdavila/powerpoint-pptx"
     "@ivangdavila/excel-xlsx"
     "@ivangdavila/data-analysis"
-    "google-maps"
-    "ontology"
-    "playwright-mcp"
-    "x-search"
+    "@ivangdavila/memory"
+    "@shaharsha/google-maps"
+    "@oswalpalash/ontology"
+    "@spiceman161/playwright-mcp"
+    "@jaaneek/x-search"
     "@pskoett/self-improving-agent"
-    "realtime-crypto-price-api"
-    "goplaces"
-    "baidu"
-    "image"
-    "skill-vetter"
-    "zhipu-web-search"
-    "baidu-ai-map"
-    "annas-archive"
-    "zotero"
+    "@strykragent/realtime-crypto-price-api"
+    "@ivangdavila/baidu"
+    "@ivangdavila/image"
+    "@spclaudehome/skill-vetter"
+    "@whyhit2005/zhipu-web-search"
+    "@baidu-maps/baidu-ai-map"
+    "@terwox/zotero"
 )
 
 cd /app
@@ -72,10 +77,7 @@ gh_key="K-Dense-AI/scientific-agent-skills"
 gh_modules="aeon astropy citation-management fluidsim hugging-science matplotlib markitdown pyzotero scientific-brainstorming scientific-critical-thinking scientific-visualization seaborn simpy statsmodels sympy"
 
 install_github_modules /app "$gh_key" "$gh_modules"
-install_cli_anything /app
-
-openclaw plugins install @openclaw/searxng-plugin
-openclaw plugins install @openclaw/llama-cpp-provider
-chmod o-w -R /home/node/.openclaw/npm/projects
 openclaw skills update --all
-openclaw doctor
+openclaw plugins install clawhub:@openclaw/searxng-plugin
+#openclaw plugins install clawhub:@openclaw/llama-cpp-provider
+

@@ -3,34 +3,33 @@
 set -e
 umask 000
 export PATH=$PATH:/home/linuxbrew/.linuxbrew/bin
+export UV=uv
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-npx playwright install chromium
 
 source $SCRIPT_DIR/common-config.sh
 
 modules=(
-    "weather"
-    "multi-search-engine"
-    "word-docx"
-    "powerpoint-pptx"
+    "@steipete/weather"
+    "@gpyangyoujun/multi-search-engine"
+    "@ivangdavila/word-docx"
+    "@ivangdavila/powerpoint-pptx"
     "@ivangdavila/excel-xlsx"
     "@ivangdavila/data-analysis"
-    "google-maps"
-    "ontology"
-    "playwright-mcp"
-    "x-search"
+    "@ivangdavila/memory"
+    "@shaharsha/google-maps"
+    "@oswalpalash/ontology"
+    "@spiceman161/playwright-mcp"
+    "@jaaneek/x-search"
     "@pskoett/self-improving-agent"
-    "realtime-crypto-price-api"
-    "goplaces"
-    "baidu"
-    "image"
-    "productivity"
-    "skill-vetter"
-    "zhipu-web-search"
-    "baidu-ai-map"
-    "annas-archive"
-    "zotero"
+    "@strykragent/realtime-crypto-price-api"
+    "@steipete/goplaces"
+    "@ivangdavila/baidu"
+    "@ivangdavila/image"
+    "@spclaudehome/skill-vetter"
+    "@whyhit2005/zhipu-web-search"
+    "@baidu-maps/baidu-ai-map"
+    "@ricardodpalmeida/annas-archive"
+    "@terwox/zotero"
 )
 
 for module in "${modules[@]}"; do
@@ -60,4 +59,5 @@ gh_modules="aeon \
 
 install_github_modules /opt/hermes "$gh_key" "$gh_modules"
 install_cli_anything /opt/hermes
+hermes config set model.default openrouter/free
 

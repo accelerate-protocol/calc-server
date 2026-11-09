@@ -8,44 +8,95 @@ x-extra-hosts:
     - host.docker.internal:host-gateway
 
 services:
+  traefik:
+    image: traefik:latest
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"      # HTTP entrypoint
+      - "443:443"    # HTTPS entrypoint
+    env_file:
+      - .env
+    volumes:
+      # Mount the Docker socket as read-only for automatic service discovery
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Volume to persist Let's Encrypt certificates
+      - ./letsencrypt:/letsencrypt
+      # Mount the static traefik.yml configuration file
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        if [ "${SKIP_TRAEFIK:-false}" = "true" ]; then
+          echo "Traefik skipped (SKIP_TRAEFIK=true)"; exit 0
+        fi
+        exec /entrypoint.sh traefik
+    labels:
+      # Securely route Traefik Dashboard over HTTPS
+      - "traefik.enable=true"
   jupyter:
     <<: [*default-restart, *host-gateway]
     build:
       dockerfile: Dockerfile.jupyter
-    volumes:
-      - jupyter-data:/home
-      - /mnt:/mnt
-      - ./jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py
+      pull: true
     ports:
       - 3002:8000
+    volumes:
+      - jupyter-data:/home
+      - ${EXTERNAL_DIR-/mnt}:/mnt
+      - ./jupyterhub_config.py:/srv/jupyterhub/jupyterhub_config.py
     environment:
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_OAUTH_CALLBACK_URL: ${JUPYTER_OAUTH_CALLBACK_URL}
+      JUPYTERHUB_AUTHENTICATOR_CLASS: ${JUPYTERHUB_AUTHENTICATOR_CLASS}
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
+      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL}
       ADMIN_USERS: ${ADMIN_USERS}
       ALLOWED_USERS: ${ALLOWED_USERS}
+      LITELLM_BASE_URL: ${LITELLM_BASE_URL:-http://litellm:4000/}
+      HERMES_AGENT_BASE_URL: ${HERMES_AGENT_BASE_URL:-http://hermes-agent:8642/v1}
+      HERMES_AGENT_API_KEY: ${HERMES_AGENT_API_KEY:-your-secure-key-fob!}
+      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://openclaw:18789/v1}
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-your-secure-key-fob!}
+      OPENPIBOT_BASE_URL: ${OPENPIBOT_BASE_URL:-http://openpibot:11435/v1}
+      OPENPIBOT_API_KEY: ${OPENPIBOT_API_KEY:-your-secure-key-fob!}
+      OPENID_PROVIDER_URL: ${OPENID_PROVIDER_URL}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jupyter.rule=Host(`compute.${DOMAIN-localhost}`)"
+      - "traefik.http.routers.jupyter.entrypoints=websecure"
+      - "traefik.http.routers.jupyter.tls=true"
+      - "traefik.http.routers.jupyter.tls.certresolver=myresolver"
 
   openwebui:
     <<: [*default-restart, *host-gateway]
     image: ghcr.io/open-webui/open-webui:${WEBUI_DOCKER_TAG-slim}
     volumes:
-      - open-webui:/app/backend/data
+      - openwebui-data:/app/backend/data
     ports:
       - 3000:8080
     environment:
+      ENABLE_OAUTH_SIGNUP: true
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
-      GOOGLE_DRIVE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      GOOGLE_DRIVE_API_KEY: ${GOOGLE_DRIVE_API_KEY}
+      #OAUTH_SCOPES: ${OAUTH_SCOPES-read:user user:email}
+      #OAUTH_EMAIL_CLAIM: ${OAUTH_EMAIL_CLAIM-"email"}
       OPENID_PROVIDER_URL: ${OPENID_PROVIDER_URL}
       OAUTH_MERGE_ACCOUNTS_BY_EMAIL: true
+      OPENAI_API_BASE_URL: http://litellm:4000/v1
+      WEBUI_URL: ${WEBUI_URL}
     pull_policy: always
-
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ai.rule=Host(`ai.${DOMAIN-localhost}`)"
+      - "traefik.http.routers.ai.entrypoints=websecure"
+      - "traefik.http.routers.ai.tls=true"
+      - "traefik.http.routers.ai.tls.certresolver=myresolver"
   ollama:
     <<: [*default-restart]
     image: cagataygurturk/docker-ssh-tunnel:latest
     volumes:
-      # Mount your local private SSH key (read-only)
       - ~/.ssh:/root/ssh:ro
     environment:
       LOCAL_PORT: 11434
@@ -56,14 +107,14 @@ services:
       - 11434:11434
     pull_policy: always
 
-  hermes:
+  hermes-agent:
     <<: [*default-restart, *host-gateway]
     build:
       context: .
       dockerfile: Dockerfile.hermes
       pull: true
     volumes:
-      - hermes-data:/opt/data
+      - hermes-agent-data:/opt/data
     ports:
       - 8642:8642
     environment:
@@ -115,15 +166,43 @@ services:
     volumes:
       - valkey-data:/data/
 
+  litellm:
+    <<: [*default-restart]
+    image: ghcr.io/berriai/litellm:main-stable
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./litellm_config.yml:/app/config.yml
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      POE_API_KEY: ${POE_API_KEY}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-sk-your-secure-key-fob!}
+    command: [ "--config", "/app/config.yml", "--port", "4000" ]
+
+  openpibot:
+    restart: unless-stopped
+    build:
+      context: https://github.com/hkphysics/openpibot.git#develop
+      dockerfile: Dockerfile.pi-bridge
+    volumes:
+      - ${PI_EXTERNAL_DIR-/mnt}:/workspace
+      - openpibot-data:/home/node
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      PI_PROVIDER: ${PI_PROVIDER-openrouter}
+      PI_TOOLS: ${PI_TOOLS-read,bash,edit,write,grep,find,ls,web_search,web_fetch,mcp}
+      PI_MODEL: ${PI_MODEL-openrouter/free}
+      PI_SHOW_REASONING: ${PI_SHOW_REASONING-true}
+
 volumes:
-  open-webui:
-  hermes-data:
+  openwebui-data:
+  hermes-agent-data:
   core-data:
   valkey-data:
   openclaw-data:
   jupyter-data:
+  openpibot-data:
 
 secrets:
   clawhub_api_key:
     environment: "CLAWHUB_API_KEY"
-

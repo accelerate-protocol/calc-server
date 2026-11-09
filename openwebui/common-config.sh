@@ -59,10 +59,9 @@ install_github_modules() {
     local module_list=$3
 
     cd "$workdir"
+    git clone --progress --single-branch --depth 1 https://github.com/${gh_key}.git /tmp/github.$$
     for module in $module_list; do
-        install_module "npx skills add https://github.com/${gh_key}/tree/main/skills/${module} -y" "5"
-        rm -f skills/${module}
-        mv .agents/skills/${module} skills
+        mv /tmp/github.$$/skills/${module} skills
     done
 }
 
@@ -70,7 +69,7 @@ install_cli_anything() {
     local workdir=$1
 
     cd "$workdir"
-    pip install cli-anything-hub
+    $UV pip install cli-anything-hub
     npx skills add HKUDS/CLI-Anything --skill cli-hub-meta-skill -y
     rm -f skills/cli-hub-meta-skill
     mv .agents/skills/cli-hub-meta-skill skills
